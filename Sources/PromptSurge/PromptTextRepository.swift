@@ -1,9 +1,8 @@
 import Foundation
 
 final class PromptTextRepository {
-    private static let cacheKey = "ps_cached_prompt"
+    private static let cacheKey    = "ps_cached_prompt"
     private static let cacheExpiry: TimeInterval = 6 * 3600
-    private static let impressionLimitKey = "ps_impression_limit_exceeded"
 
     private let apiKey: String
     private let apiBaseUrl: String
@@ -17,22 +16,30 @@ final class PromptTextRepository {
         self.session = URLSession(configuration: .ephemeral)
     }
 
-    var isImpressionLimitExceeded: Bool {
-        defaults.bool(forKey: Self.impressionLimitKey)
-    }
-
-    func fetch(completion: @escaping (PromptResponse?) -> Void) {
+    /// Fetches the current prompt.
+    ///
+    /// On success, calls `onSuccess` with the parsed response (may be nil on a network/parse error).
+    /// On 402 (impression limit), calls `onLimitExceeded` — the server is the single source of
+    /// truth for billing limits; nothing is cached locally for this signal.
+    func fetch(
+        onSuccess: @escaping (PromptResponse?) -> Void,
+        onLimitExceeded: (() -> Void)? = nil
+    ) {
         if let cached = loadCache() {
-            completion(cached)
-            fetchAndCache { _ in }
+            onSuccess(cached)
+            // Refresh in background (ignore 402 during silent refresh).
+            fetchAndCache(onSuccess: { _ in }, onLimitExceeded: nil)
             return
         }
-        fetchAndCache(completion: completion)
+        fetchAndCache(onSuccess: onSuccess, onLimitExceeded: onLimitExceeded)
     }
 
-    private func fetchAndCache(completion: @escaping (PromptResponse?) -> Void) {
+    private func fetchAndCache(
+        onSuccess: @escaping (PromptResponse?) -> Void,
+        onLimitExceeded: (() -> Void)?
+    ) {
         guard let url = URL(string: "\(apiBaseUrl)/v1/prompts") else {
-            completion(nil)
+            onSuccess(nil)
             return
         }
         var req = URLRequest(url: url)
@@ -42,19 +49,18 @@ final class PromptTextRepository {
         session.dataTask(with: req) { [weak self] data, response, _ in
             let statusCode = (response as? HTTPURLResponse)?.statusCode
             if statusCode == 402 {
-                self?.defaults.set(true, forKey: Self.impressionLimitKey)
-                completion(nil)
+                // Server billing limit — handled transiently, not persisted on device.
+                onLimitExceeded?()
                 return
             }
             guard let data = data,
                   let apiResp = try? JSONDecoder().decode(APIPromptResponse.self, from: data) else {
-                completion(nil)
+                onSuccess(nil)
                 return
             }
             let mapped = mapAPIResponse(apiResp)
-            self?.defaults.set(false, forKey: Self.impressionLimitKey)
             self?.saveCache(mapped)
-            completion(mapped)
+            onSuccess(mapped)
         }.resume()
     }
 

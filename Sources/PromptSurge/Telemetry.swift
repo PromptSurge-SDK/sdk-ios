@@ -2,6 +2,15 @@ import Foundation
 import CryptoKit
 import UIKit
 
+// MARK: - Wire models
+
+/// Free-form event payload. Only non-nil fields are encoded, producing `{}` for empty events.
+struct EventPayload: Encodable {
+    var promptId: String?
+    /// Must be an integer in JSON — schema rejects string values.
+    var servedPromptNumber: Int?
+}
+
 struct EventDto: Encodable {
     let eventType: String
     let eventId: String
@@ -13,11 +22,18 @@ struct EventDto: Encodable {
     let locale: String
     let platform: String
     let holdout: Bool
-    let payload: [String: String]
+    let payload: EventPayload
 }
 
+/// Batch envelope expected by POST /v1/events.
+private struct EventBatch: Encodable {
+    let events: [EventDto]
+}
+
+// MARK: - Telemetry
+
 final class Telemetry {
-    static let sdkVersion = "1.0.0"
+    static let sdkVersion = "1.0.1"
     private static let platform = "ios"
 
     private let apiKey: String
@@ -25,6 +41,7 @@ final class Telemetry {
     private let sessionId: String
     private let holdoutManager: HoldoutManager
     private let session: URLSession
+    private let encoder: JSONEncoder
 
     init(apiKey: String, apiBaseUrl: String, holdoutManager: HoldoutManager) {
         self.apiKey = apiKey
@@ -32,9 +49,10 @@ final class Telemetry {
         self.sessionId = UUID().uuidString
         self.holdoutManager = holdoutManager
         self.session = URLSession(configuration: .ephemeral)
+        self.encoder = JSONEncoder()
     }
 
-    func send(eventType: String, payload: [String: String] = [:]) {
+    func send(eventType: String, payload: EventPayload = EventPayload()) {
         let dto = EventDto(
             eventType: eventType,
             eventId: UUID().uuidString,
@@ -49,8 +67,10 @@ final class Telemetry {
             payload: payload
         )
 
+        // Wrap in batch envelope — server expects { "events": [...] }.
+        let batch = EventBatch(events: [dto])
         guard let url = URL(string: "\(apiBaseUrl)/v1/events"),
-              let body = try? JSONEncoder().encode(dto) else { return }
+              let body = try? encoder.encode(batch) else { return }
 
         var req = URLRequest(url: url)
         req.httpMethod = "POST"

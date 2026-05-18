@@ -28,6 +28,15 @@ public final class PromptSurge {
         shared = PromptSurge(apiKey: apiKey, apiBaseUrl: apiBaseUrl)
     }
 
+    /// Warms the prompt cache in the background without showing any dialog.
+    ///
+    /// Call this early (e.g. in `applicationDidFinishLaunching`) so the prompt text is already
+    /// cached when `requestReview(in:)` is called later, eliminating the network round-trip
+    /// delay at the moment of the request. Safe to call multiple times; no-ops if cache is fresh.
+    public static func prefetch() {
+        shared?.repository.fetch(onSuccess: { _ in }, onLimitExceeded: nil)
+    }
+
     /// Presents the pre-prompt dialog from `viewController` if rate limits and holdout allow.
     /// Does nothing (silently) if `initialize` has not been called or if the user has opted out.
     public static func requestReview(in viewController: UIViewController) {
@@ -69,68 +78,70 @@ public final class PromptSurge {
             return
         }
 
-        // Impression limit reached — skip pre-prompt, fire native review directly.
-        if repository.isImpressionLimitExceeded {
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                if let scene = presenter.view.window?.windowScene {
-                    SKStoreReviewController.requestReview(in: scene)
-                    self.telemetry.send(eventType: EventTypes.nativePromptRequested)
+        repository.fetch(
+            onSuccess: { [weak self] response in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+
+                    let effectiveResponse = response ?? PromptResponse(
+                        promptId: "default",
+                        appPromptNumber: nil,
+                        text: defaultPromptText,
+                        theme: nil
+                    )
+
+                    let vc = PrePromptViewController(
+                        promptResponse: effectiveResponse,
+                        onAccept: { [weak self] in
+                            guard let self else { return }
+                            self.telemetry.send(
+                                eventType: EventTypes.prePromptConfirmed,
+                                payload: self.promptPayload(effectiveResponse)
+                            )
+                            if let scene = presenter.view.window?.windowScene {
+                                SKStoreReviewController.requestReview(in: scene)
+                            }
+                            self.telemetry.send(eventType: EventTypes.nativePromptRequested)
+                        },
+                        onDismiss: { [weak self] in
+                            guard let self else { return }
+                            self.rateLimiter.recordDismissed()
+                            self.telemetry.send(
+                                eventType: EventTypes.prePromptDismissed,
+                                payload: self.promptPayload(effectiveResponse)
+                            )
+                        }
+                    )
+
+                    // Fire shown event once before presenting.
                     self.rateLimiter.recordShown()
+                    self.telemetry.send(
+                        eventType: EventTypes.prePromptShown,
+                        payload: self.promptPayload(effectiveResponse)
+                    )
+
+                    presenter.present(vc, animated: true)
+                }
+            },
+            onLimitExceeded: { [weak self] in
+                // Server billing limit hit — fire native review directly.
+                // No client-side caching: every call checks the server fresh.
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if let scene = presenter.view.window?.windowScene {
+                        SKStoreReviewController.requestReview(in: scene)
+                        self.telemetry.send(eventType: EventTypes.nativePromptRequested)
+                        self.rateLimiter.recordShown()
+                    }
                 }
             }
-            return
-        }
-
-        repository.fetch { [weak self] response in
-            DispatchQueue.main.async {
-                guard let self else { return }
-
-                let effectiveResponse = response ?? PromptResponse(
-                    promptId: "default",
-                    appPromptNumber: nil,
-                    text: defaultPromptText,
-                    theme: nil
-                )
-
-                let vc = PrePromptViewController(
-                    promptResponse: effectiveResponse,
-                    onAccept: { [weak self] in
-                        guard let self else { return }
-                        // recordShown() was already called before presenting — do not call again here.
-                        self.telemetry.send(
-                            eventType: EventTypes.prePromptConfirmed,
-                            payload: self.promptPayload(effectiveResponse)
-                        )
-                        self.telemetry.send(eventType: EventTypes.nativePromptRequested)
-                    },
-                    onDismiss: { [weak self] in
-                        guard let self else { return }
-                        self.rateLimiter.recordDismissed()
-                        self.telemetry.send(
-                            eventType: EventTypes.prePromptDismissed,
-                            payload: self.promptPayload(effectiveResponse)
-                        )
-                    }
-                )
-
-                // Fire shown event once before presenting.
-                self.rateLimiter.recordShown()
-                self.telemetry.send(
-                    eventType: EventTypes.prePromptShown,
-                    payload: self.promptPayload(effectiveResponse)
-                )
-
-                presenter.present(vc, animated: true)
-            }
-        }
+        )
     }
 
-    private func promptPayload(_ response: PromptResponse) -> [String: String] {
-        var payload: [String: String] = ["promptId": response.promptId]
-        if let n = response.appPromptNumber {
-            payload["servedPromptNumber"] = String(n)
-        }
-        return payload
+    private func promptPayload(_ response: PromptResponse) -> EventPayload {
+        return EventPayload(
+            promptId: response.promptId,
+            servedPromptNumber: response.appPromptNumber
+        )
     }
 }

@@ -11,6 +11,8 @@ struct APIPromptResponse: Codable {
     let imageUrl: String?
     let promptNumber: Int?
     let theme: DialogTheme?
+    /// True during the mandatory warm-up phase. SDK fires native review without dialog.
+    let warmup: Bool?
 }
 
 // ─── Internal SDK model ───────────────────────────────────────────────────────
@@ -37,6 +39,8 @@ struct PromptResponse: Codable {
     let text: PromptText
     let theme: DialogTheme?
     let imageUrl: String?
+    /// True during the mandatory warm-up phase. SDK fires native review without dialog.
+    let warmup: Bool
 }
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
@@ -63,6 +67,7 @@ func mapAPIResponse(_ api: APIPromptResponse) -> PromptResponse {
         appPromptNumber: api.promptNumber,
         text: text,
         theme: api.theme,
-        imageUrl: api.imageUrl
+        imageUrl: api.imageUrl,
+        warmup: api.warmup ?? false
     )
 }

@@ -33,7 +33,7 @@ private struct EventBatch: Encodable {
 // MARK: - Telemetry
 
 final class Telemetry {
-    static let sdkVersion = "1.0.1"
+    static let sdkVersion = "1.0.2"
     private static let platform = "ios"
 
     private let apiKey: String

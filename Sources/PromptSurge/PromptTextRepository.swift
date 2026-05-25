@@ -59,7 +59,9 @@ final class PromptTextRepository {
                 return
             }
             let mapped = mapAPIResponse(apiResp)
-            self?.saveCache(mapped)
+            // Do not cache warm-up responses — they must stay live so the threshold
+            // counter can advance and warm-up completion is detected on the next fetch.
+            if !mapped.warmup { self?.saveCache(mapped) }
             onSuccess(mapped)
         }.resume()
     }

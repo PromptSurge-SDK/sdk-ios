@@ -87,8 +87,20 @@ public final class PromptSurge {
                         promptId: "default",
                         appPromptNumber: nil,
                         text: defaultPromptText,
-                        theme: nil
+                        theme: nil,
+                        imageUrl: nil,
+                        warmup: false
                     )
+
+                    // Warm-up phase: fire native review to build baseline, never show dialog.
+                    if effectiveResponse.warmup {
+                        if let scene = presenter.view.window?.windowScene {
+                            SKStoreReviewController.requestReview(in: scene)
+                            self.telemetry.send(eventType: EventTypes.nativePromptRequested)
+                            self.rateLimiter.recordShown()
+                        }
+                        return
+                    }
 
                     let vc = PrePromptViewController(
                         promptResponse: effectiveResponse,

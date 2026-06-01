@@ -38,7 +38,12 @@ final class PromptTextRepository {
         onSuccess: @escaping (PromptResponse?) -> Void,
         onLimitExceeded: (() -> Void)?
     ) {
-        guard let url = URL(string: "\(apiBaseUrl)/v1/prompts") else {
+        // appVersion drives per-version warm-up buckets server-side. Match the value
+        // the SDK reports on events so device counts line up. Older servers ignore it.
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+        var comps = URLComponents(string: "\(apiBaseUrl)/v1/prompts")
+        comps?.queryItems = [URLQueryItem(name: "appVersion", value: version)]
+        guard let url = comps?.url else {
             onSuccess(nil)
             return
         }

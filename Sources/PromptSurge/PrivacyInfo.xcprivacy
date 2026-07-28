@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    Every field here is derived from what Telemetry.swift actually sends, not
+    from what a template suggests. If the event payload changes, this changes.
+
+    NSPrivacyTracking is false, and that is a claim worth being able to defend:
+    the SDK sends no IDFA, presents no ATT prompt, and its device id is
+    SHA-256(identifierForVendor + bundleIdentifier). The bundle-id salt is the
+    load-bearing part - identifierForVendor alone is shared across one vendor's
+    apps, so hashing it with the bundle id is what stops the same user being
+    recognised across two apps from the same publisher.
+  -->
+  <key>NSPrivacyTracking</key>
+  <false/>
+
+  <key>NSPrivacyTrackingDomains</key>
+  <array/>
+
+  <key>NSPrivacyCollectedDataTypes</key>
+  <array>
+    <dict>
+      <!-- The hashed per-install id on every event. -->
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeDeviceID</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+      </array>
+    </dict>
+    <dict>
+      <!--
+        The events themselves: pre_prompt_shown / confirmed / dismissed,
+        native_prompt_requested, initialize, first_open. Apple classes
+        "which screens a user saw and what they tapped" as Product Interaction.
+      -->
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeProductInteraction</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+      </array>
+    </dict>
+  </array>
+
+  <key>NSPrivacyAccessedAPITypes</key>
+  <array>
+    <dict>
+      <!--
+        This is the entry that causes ITMS-91053 when it is missing. UserDefaults
+        is a required-reason API, and the SDK uses it for the first_open flag and
+        the cooldown timestamps - all of it read and written by this app only,
+        which is exactly what CA92.1 covers.
+      -->
+      <key>NSPrivacyAccessedAPIType</key>
+      <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+      <key>NSPrivacyAccessedAPITypeReasons</key>
+      <array>
+        <string>CA92.1</string>
+      </array>
+    </dict>
+  </array>
+</dict>
+</plist>

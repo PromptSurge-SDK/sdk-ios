@@ -77,8 +77,12 @@ struct PromptResponse: Codable {
 
 /// Bundled English fallback. Kept verbatim in step with the Android SDK's `PromptDefaults`
 /// so the same app shows the same offline copy on both platforms.
+///
+/// The title is a call to action, not a satisfaction question, and must stay one: only the
+/// confirm button opens `SKStoreReviewController`, so an "Are you enjoying...?" title would make
+/// this a sentiment filter (App Store 5.6.1). See `docs/conventions.md`.
 let defaultPromptText = PromptText(
-    title: "Enjoying this app?",
+    title: "Leave a review?",
     body: "Reviews help other people discover apps like this. Got a moment?",
     positiveButton: "Sure",
     negativeButton: "Not now",

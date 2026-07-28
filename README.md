@@ -47,7 +47,17 @@ If nothing appears at all, `initialize(apiKey:)` was never called.
 - **Invalid API key:** `401`/`403` is logged as an error and no pre-prompt is shown. The SDK deliberately does *not* fall back to bundled copy here, so a broken key cannot look like a working install.
 - **Fallback:** If the API is unreachable, a bundled English default prompt is shown.
 - **Localization:** the device locale is sent as a BCP-47 tag (`de-DE`) on every prompt request; the server resolves it through its fallback chain and the SDK reports the locale it actually rendered.
-- **No sentiment gating:** Both buttons lead to `SKStoreReviewController` — required for Apple App Store Review guideline 5.6.1 compliance.
+- **The two buttons differ:** confirm calls `SKStoreReviewController`, dismiss does not. A dismissal records the cooldown and fires `pre_prompt_dismissed`. This is deliberate: a user who says "not now" is answering the question, so the rating sheet stays closed.
+
+## The copy is where the policy risk lives
+
+The default copy is a plain call to action ("Leave a review?"), and it must stay one. Because
+only the confirm button opens the native sheet, rewriting the four strings into a satisfaction
+question - "Are you enjoying the app?", "How are we doing?" - turns the dialog into a filter that
+routes only happy users to the store. That is the pattern App Store Review guideline 5.6.1 and
+Google Play's in-app review policy are about, and the consequence lands on your listing.
+
+Keep it a request to review. Do not make it a question about how the user feels.
 
 ## Requirements
 

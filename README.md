@@ -30,7 +30,15 @@ PromptSurge.requestReview(in: self) // self = UIViewController
 
 ## Diagnostics
 
-The SDK logs to the unified log under subsystem `com.promptsurge.sdk`. Errors and warnings are always emitted — a rejected API key, a suppressed dialog and a failed fetch each say so, by name. `setLogLevel(.info)` adds one line per decision, `.debug` adds per-event delivery results, `.quiet` (the default) leaves only errors and warnings.
+The SDK logs to the unified log under subsystem `com.promptsurge.sdk`. Errors and warnings are always emitted — a rejected API key and a failed fetch each say so, by name.
+
+**A suppressed dialog usually does not.** The two server-side suppressions — impression cap and deleted app — are warnings and always print. But warm-up, holdout, both cooldowns and opted-out are **info**, and `.quiet` is the default. Those four cover every reason a correctly wired integration shows nothing, so the most confusing case is also the quietest one:
+
+```swift
+PromptSurge.setLogLevel(.info)
+```
+
+Do that first, before anything else in this section. `.debug` adds per-event delivery results.
 
 ```
 log stream --predicate 'subsystem == "com.promptsurge.sdk"'
@@ -38,8 +46,25 @@ log stream --predicate 'subsystem == "com.promptsurge.sdk"'
 
 If nothing appears at all, `initialize(apiKey:)` was never called.
 
+### Nothing is showing and I do not know why
+
+With `.info` set, the SDK says which of these it hit, in this order. Without it, all of them are silent.
+
+| What you will see | What it means |
+|---|---|
+| `requestReview ignored: this user has opted out.` | `setOptedOut(true)` was called at some point; it persists. |
+| `Requesting the native review prompt: the app is still in its warm-up phase.` | **The one that catches every new integration.** See Behaviour below. |
+| `Requesting the native review prompt: this device is in the holdout group.` | The 10% control group, for this device's lifetime. Try another device. |
+| `requestReview ignored: still inside the cooldown window (90 days after a shown prompt, 7 after a dismissal).` | Already shown or dismissed on this device. |
+| `Monthly impression limit reached...` (warning) | Always prints. Plan cap spent; clears when the billing period rolls over. |
+| `This app was deleted in the PromptSurge admin panel...` (warning) | Always prints. Restore the app to clear it. |
+| `requestReview ignored: a request is already in flight.` | Two calls raced; harmless. |
+
+In every one of these cases the **native** review sheet still fires where the platform allows it. A missing pre-prompt does not mean nothing happened — and note that `SKStoreReviewController` itself is rate-limited by iOS, so an invisible native sheet is normal too.
+
 ## Behaviour
 
+- **Warm-up phase:** a brand-new app shows **no pre-prompt at all** until it has recorded **50 distinct devices** firing `native_prompt_requested`. Until then every `requestReview` fires `SKStoreReviewController` directly, which is what builds the baseline the whole product measures lift against. Default mode is `once` — one warm-up for the app's lifetime, not per release. **A test device will never reach 50 on its own**, so this is the expected state during an integration rather than a bug. Turn it off for an app from its overview page in the dashboard (Warm-up control), or leave it on and test with `setLogLevel(.info)`.
 - **Holdout group:** 10% of devices are silently skipped (control group for measuring lift). Assignment is random and persists for the device's lifetime.
 - **Rate limiting:** After a "shown" event, the dialog won't reappear for 90 days. After a dismiss, 7 days. The cooldown is recorded when the dialog actually appears on screen, not when it is requested.
 - **Impression limit:** When your plan's monthly cap is reached the API returns `402`. The SDK persists this in `UserDefaults`, suppresses the dialog and fires `SKStoreReviewController` directly. The flag clears on the next successful response, i.e. when the billing period rolls over.

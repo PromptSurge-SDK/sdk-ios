@@ -3,8 +3,14 @@ import os.log
 
 /// Diagnostic verbosity for the PromptSurge SDK.
 ///
-/// Errors and warnings are emitted regardless of this setting — a rejected API key or a
-/// suppressed dialog must never be silent. This only controls the informational output.
+/// Errors and warnings are emitted regardless of this setting — a rejected API key must never
+/// be silent. This only controls the informational output.
+///
+/// A SUPPRESSED DIALOG IS NOT IN THAT GUARANTEE, and this comment used to claim it was. Every
+/// suppression reason (warm-up, holdout, cooldown, opted out) is `PSLog.info`, so at the default
+/// `.quiet` the most confusing case — "nothing appeared and I do not know why" — is also the
+/// quietest one. The READMEs now open their diagnostics section with `setLogLevel(.info)` for
+/// exactly this reason; if that ever changes, change it here too.
 public enum PromptSurgeLogLevel: Int, Comparable {
     /// Errors and warnings only (the default).
     case quiet = 0

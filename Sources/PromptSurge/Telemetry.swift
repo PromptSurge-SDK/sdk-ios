@@ -30,14 +30,21 @@ struct EventDto: Encodable {
 }
 
 /// Batch envelope expected by POST /v1/events.
-private struct EventBatch: Encodable {
+///
+/// `verifyToken` is the one-shot app-ownership token from the dashboard's Verify page. The
+/// server declares it `.optional()`, which rejects an explicit `null` - the key must be absent
+/// when unset. The synthesized `Encodable` uses `encodeIfPresent` for optionals, so a nil here
+/// is omitted rather than encoded, which is exactly the behaviour Android needed
+/// `explicitNulls = false` for. Internal (not private) so the encoding contract is testable.
+struct EventBatch: Encodable {
     let events: [EventDto]
+    let verifyToken: String?
 }
 
 // MARK: - Telemetry
 
 final class Telemetry {
-    static let sdkVersion = "1.1.0"
+    static let sdkVersion = "1.2.0"
     private static let platform = "ios"
     private static let firstOpenKey = "ps_first_open_fired"
 
@@ -45,6 +52,10 @@ final class Telemetry {
     private let apiBaseUrl: String
     let sessionId: String
     private let holdoutManager: HoldoutManager
+    /// One-shot app-ownership token. Rides along with every batch while set - the server
+    /// consumes it once, and the integrator removes it from code after the dashboard shows
+    /// the app as verified. Mirrors `EventBus.verifyToken` on Android.
+    private let verifyToken: String?
     private let defaults: UserDefaults
     private let session: URLSession
     private let encoder: JSONEncoder
@@ -54,12 +65,14 @@ final class Telemetry {
         apiBaseUrl: String,
         sessionId: String,
         holdoutManager: HoldoutManager,
+        verifyToken: String? = nil,
         defaults: UserDefaults = .standard
     ) {
         self.apiKey = apiKey
         self.apiBaseUrl = apiBaseUrl
         self.sessionId = sessionId
         self.holdoutManager = holdoutManager
+        self.verifyToken = verifyToken
         self.defaults = defaults
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 10
@@ -95,7 +108,7 @@ final class Telemetry {
         )
 
         // Wrap in batch envelope — server expects { "events": [...] }.
-        let batch = EventBatch(events: [dto])
+        let batch = EventBatch(events: [dto], verifyToken: verifyToken)
         guard let url = URL(string: "\(apiBaseUrl)/v1/events"),
               let body = try? encoder.encode(batch) else {
             PSLog.error("Could not build the \(eventType) request for apiBaseUrl '\(apiBaseUrl)'.")

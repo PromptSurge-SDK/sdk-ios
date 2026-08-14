@@ -22,7 +22,7 @@ public final class PromptSurge {
     /// from stacking two dialogs. Only ever touched on the main queue.
     private var isRequestInFlight = false
 
-    private init(apiKey: String, apiBaseUrl: String) {
+    private init(apiKey: String, apiBaseUrl: String, verifyToken: String?) {
         let holdout = HoldoutManager()
         // One session id shared by the prompt fetch and every event, so the server can select
         // a copy variant deterministically and the events attribute to that same session.
@@ -33,14 +33,18 @@ public final class PromptSurge {
             apiKey: apiKey,
             apiBaseUrl: apiBaseUrl,
             sessionId: sessionId,
-            holdoutManager: holdout
+            holdoutManager: holdout,
+            verifyToken: verifyToken
         )
         self.rateLimiter = RateLimiter()
     }
 
     // MARK: - Public API
 
-    public static func initialize(apiKey: String, apiBaseUrl: String = "https://api.promptsurge.me") {
+    /// - Parameter verifyToken: optional one-shot app-ownership token from the PromptSurge
+    ///   dashboard's Verify page. It rides along with the event batches and can be removed from
+    ///   your code once the dashboard shows the app as verified.
+    public static func initialize(apiKey: String, verifyToken: String? = nil, apiBaseUrl: String = "https://api.promptsurge.me") {
         let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else {
             PSLog.error("initialize(apiKey:) was called with an empty key. The SDK is not active; requestReview(in:) will do nothing. Copy your key from https://admin.promptsurge.me.")
@@ -54,7 +58,12 @@ public final class PromptSurge {
             PSLog.warning("The API key does not start with 'ps_live_'. Check you have not pasted an Android or Unity key, or an admin session token.")
         }
 
-        let instance = PromptSurge(apiKey: key, apiBaseUrl: apiBaseUrl)
+        let token = verifyToken?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let instance = PromptSurge(
+            apiKey: key,
+            apiBaseUrl: apiBaseUrl,
+            verifyToken: (token?.isEmpty == false) ? token : nil
+        )
         shared = instance
         PSLog.info("Initialized (sdkVersion \(Telemetry.sdkVersion), apiBaseUrl \(apiBaseUrl)).")
         instance.telemetry.fireLifecycleEvents()

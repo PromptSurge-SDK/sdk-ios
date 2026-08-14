@@ -28,6 +28,18 @@ PromptSurge.setLogLevel(.info)
 PromptSurge.requestReview(in: self) // self = UIViewController
 ```
 
+### Verifying app ownership (SDK 1.2.0+)
+
+The dashboard's Verify page hands you a one-shot token that proves this App Store app is
+yours. Pass it once at initialisation:
+
+```swift
+PromptSurge.initialize(apiKey: "ps_live_xxxx", verifyToken: "vt_xxxx")
+```
+
+It rides along with the event batches; remove it from your code once the dashboard shows the
+app as verified — it has no effect after that.
+
 ## Diagnostics
 
 The SDK logs to the unified log under subsystem `com.promptsurge.sdk`. Errors and warnings are always emitted — a rejected API key and a failed fetch each say so, by name.

@@ -22,5 +22,14 @@ let package = Package(
             // exact name at the bundle root.
             resources: [.copy("PrivacyInfo.xcprivacy")]
         ),
+        // The package had no test target at all until card 200. It exists so the dialog can be
+        // rendered and photographed on the CI simulator: `PrePromptViewController`, `PromptResponse`
+        // and `DialogTheme` are all internal, so only a target inside the package can construct
+        // them (`@testable import PromptSurge`).
+        .testTarget(
+            name: "PromptSurgeTests",
+            dependencies: ["PromptSurge"],
+            path: "Tests/PromptSurgeTests"
+        ),
     ]
 )

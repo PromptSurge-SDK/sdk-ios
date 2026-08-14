@@ -35,7 +35,7 @@ final class DialogSnapshotTests: XCTestCase {
         Preset(id: "gaming",    backgroundColor: "#1A2744", accentColor: "#FFD23F", textColor: "#FFFFFF", buttonTextColor: "#1A2744"),
         Preset(id: "sweet",     backgroundColor: "#5B2080", accentColor: "#F7A722", textColor: "#FAF0D3", buttonTextColor: "#5B2080"),
         Preset(id: "metal",     backgroundColor: "#13111A", accentColor: "#A8A8B8", textColor: "#F0F0F5", buttonTextColor: "#13111A"),
-        Preset(id: "greyscale", backgroundColor: "#F2F2F7", accentColor: "#8E8E93", textColor: "#1C1C1E", buttonTextColor: "#FFFFFF"),
+        Preset(id: "greyscale", backgroundColor: "#F2F2F7", accentColor: "#636366", textColor: "#1C1C1E", buttonTextColor: "#FFFFFF"),
     ]
 
     /// The longest copy the product ships, from `apps/api/prisma/seed.ts`. French is the longest

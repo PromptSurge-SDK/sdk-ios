@@ -41,6 +41,27 @@ struct EventBatch: Encodable {
     let verifyToken: String?
 }
 
+/// What `POST /v1/events` answers with. Card 349 phase 4.
+///
+/// `assignment` is present only when the batch spoke for exactly one device AND the server had
+/// or could create a row for it. It is the group the SERVER remembers for a device id that
+/// survives a reinstall, and it is the whole point of the feature: `UserDefaults` does not
+/// survive an uninstall, so without this a reinstalling device flips the coin again and is
+/// counted in both groups under one id.
+///
+/// Every field is optional, so a body missing one - or carrying fields a later server adds -
+/// still decodes. Absent `assignment` decodes to nil, which means "keep the local group", never
+/// "you are in the treatment group".
+struct EventBatchResponse: Decodable {
+    struct Assignment: Decodable {
+        let holdout: Bool
+    }
+
+    let accepted: Int?
+    let skipped: Int?
+    let assignment: Assignment?
+}
+
 // MARK: - Telemetry
 
 final class Telemetry {
@@ -121,7 +142,7 @@ final class Telemetry {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = body
 
-        session.dataTask(with: req) { _, response, error in
+        session.dataTask(with: req) { [holdoutManager = self.holdoutManager] data, response, error in
             if let error {
                 PSLog.warning("Event '\(eventType)' was not delivered: \(error.localizedDescription)")
                 return
@@ -130,6 +151,19 @@ final class Telemetry {
             switch status {
             case 200...299:
                 PSLog.debug("Event '\(eventType)' accepted (HTTP \(status)).")
+                // Card 349 phase 4: adopt the group the server remembers for this device, for
+                // the NEXT session. Silent on every failure by design - the batch was already
+                // accepted, so a body that is missing, truncated or shaped differently from what
+                // this SDK version expects must not turn a successful send into a logged
+                // failure. The device simply keeps its local group until the next event.
+                //
+                // Only on 2xx: a server that answered 500 with a JSON error page must never be
+                // able to move a device's group.
+                if let data,
+                   let decoded = try? JSONDecoder().decode(EventBatchResponse.self, from: data),
+                   let assignment = decoded.assignment {
+                    holdoutManager.adoptFromServer(assignment.holdout)
+                }
             case 401, 403:
                 PSLog.error("Event '\(eventType)' rejected: the API key is not valid (HTTP \(status)).")
             case 400:

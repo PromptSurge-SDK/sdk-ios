@@ -6,12 +6,12 @@ import UIKit
 
 /// Free-form event payload. Only non-nil fields are encoded, producing `{}` for empty events.
 struct EventPayload: Encodable {
-    /// Copy variant the server served, when it identified one. Nil means "not attributable" —
+    /// Copy variant the server served, when it identified one. Nil means "not attributable" -
     /// which is honest, unlike the literal `"api"` this used to send for every prompt.
     var promptId: String?
     /// Locale actually rendered, after the server's fallback chain (`de-DE` → `de` → `en`).
     var resolvedLocale: String?
-    /// Must be an integer in JSON — schema rejects string values.
+    /// Must be an integer in JSON - schema rejects string values.
     var servedPromptNumber: Int?
 }
 
@@ -87,7 +87,8 @@ final class Telemetry {
         sessionId: String,
         holdoutManager: HoldoutManager,
         verifyToken: String? = nil,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        session: URLSession? = nil
     ) {
         self.apiKey = apiKey
         self.apiBaseUrl = apiBaseUrl
@@ -95,11 +96,16 @@ final class Telemetry {
         self.holdoutManager = holdoutManager
         self.verifyToken = verifyToken
         self.defaults = defaults
+        self.encoder = JSONEncoder()
+        // `session` is nil in the SDK; the tests pass one that answers without a network.
+        if let session {
+            self.session = session
+            return
+        }
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 10
         config.timeoutIntervalForResource = 15
         self.session = URLSession(configuration: config)
-        self.encoder = JSONEncoder()
     }
 
     /// Fires `initialize` (every launch) and `first_open` (once per install).
@@ -128,7 +134,7 @@ final class Telemetry {
             payload: payload
         )
 
-        // Wrap in batch envelope — server expects { "events": [...] }.
+        // Wrap in batch envelope - server expects { "events": [...] }.
         let batch = EventBatch(events: [dto], verifyToken: verifyToken)
         guard let url = URL(string: "\(apiBaseUrl)/v1/events"),
               let body = try? encoder.encode(batch) else {
@@ -167,7 +173,7 @@ final class Telemetry {
             case 401, 403:
                 PSLog.error("Event '\(eventType)' rejected: the API key is not valid (HTTP \(status)).")
             case 400:
-                PSLog.error("Event '\(eventType)' rejected as malformed (HTTP 400) — the SDK and server event schemas disagree.")
+                PSLog.error("Event '\(eventType)' rejected as malformed (HTTP 400) - the SDK and server event schemas disagree.")
             default:
                 PSLog.warning("Event '\(eventType)' rejected with HTTP \(status).")
             }

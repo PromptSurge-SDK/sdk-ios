@@ -5,11 +5,11 @@ import Foundation
 enum PromptFetchResult {
     /// Copy to render, from the cache or from the network.
     case prompt(PromptResponse)
-    /// 402 — the app is over its monthly impression limit for its tier.
+    /// 402 - the app is over its monthly impression limit for its tier.
     case limitExceeded
-    /// 404 `app_deleted` — the app was deleted in the admin panel.
+    /// 404 `app_deleted` - the app was deleted in the admin panel.
     case appDeleted
-    /// 401/403 — the API key is missing, wrong, or revoked. Never show a dialog for this.
+    /// 401/403 - the API key is missing, wrong, or revoked. Never show a dialog for this.
     case unauthorized
     /// Network failure, unparseable body, or an unexpected status. Caller may fall back to
     /// the bundled English copy.
@@ -30,11 +30,17 @@ final class PromptTextRepository {
     private let defaults: UserDefaults
     private let session: URLSession
 
-    init(apiKey: String, apiBaseUrl: String, sessionId: String, defaults: UserDefaults = .standard) {
+    /// - Parameter session: nil in the SDK. The tests pass one whose protocol class answers
+    ///   without a network.
+    init(apiKey: String, apiBaseUrl: String, sessionId: String, defaults: UserDefaults = .standard, session: URLSession? = nil) {
         self.apiKey = apiKey
         self.apiBaseUrl = apiBaseUrl
         self.sessionId = sessionId
         self.defaults = defaults
+        if let session {
+            self.session = session
+            return
+        }
         // The URLSession defaults are 60 s per request and 7 days per resource, which on a
         // captive portal means a minute of nothing before the caller hears back. Match the
         // Android SDK's OkHttp settings instead.
@@ -48,7 +54,7 @@ final class PromptTextRepository {
     var isAppDeleted: Bool { defaults.bool(forKey: Self.deletedKey) }
 
     /// The server told us the monthly impression limit is spent. Persisted, cleared by the
-    /// next 200 — which is how it recovers when the billing period rolls over.
+    /// next 200 - which is how it recovers when the billing period rolls over.
     var isImpressionLimitExceeded: Bool { defaults.bool(forKey: Self.limitKey) }
 
     /// Resolves the prompt to show, consulting the six-hour cache first.
@@ -87,7 +93,7 @@ final class PromptTextRepository {
         var comps = URLComponents(string: "\(apiBaseUrl)/v1/prompts")
         comps?.queryItems = [
             // The server reads the `locale` query parameter and nothing else. This SDK used to
-            // send an `Accept-Language` header, which the route never inspects — which is why
+            // send an `Accept-Language` header, which the route never inspects - which is why
             // no iOS user had ever received localized copy.
             URLQueryItem(name: "locale", value: currentLocaleTag()),
             // Makes A/B copy selection stable for the lifetime of a session.
@@ -95,7 +101,7 @@ final class PromptTextRepository {
             URLQueryItem(name: "appVersion", value: version),
         ]
         guard let url = comps?.url else {
-            PSLog.error("apiBaseUrl '\(apiBaseUrl)' is not a valid URL — no prompt can be fetched.")
+            PSLog.error("apiBaseUrl '\(apiBaseUrl)' is not a valid URL - no prompt can be fetched.")
             completion(.unavailable)
             return
         }
@@ -125,14 +131,14 @@ final class PromptTextRepository {
                 PSLog.error("""
                     API key rejected (HTTP \(http.statusCode)). Check the key passed to \
                     PromptSurge.initialize(apiKey:) against the one shown in the admin panel at \
-                    https://admin.promptsurge.me — it should start with 'ps_live_'. \
+                    https://admin.promptsurge.me - it should start with 'ps_live_'. \
                     No pre-prompt will be shown until this is fixed.
                     """)
                 completion(.unauthorized)
                 return
             case 402:
                 self.setFlag(Self.limitKey, true)
-                PSLog.warning("Monthly impression limit reached — the native review prompt fires directly. See https://admin.promptsurge.me/billing")
+                PSLog.warning("Monthly impression limit reached - the native review prompt fires directly. See https://admin.promptsurge.me/billing")
                 completion(.limitExceeded)
                 return
             case 404:
@@ -141,7 +147,7 @@ final class PromptTextRepository {
                     PSLog.warning("This app was deleted in the PromptSurge admin panel; the pre-prompt is suppressed.")
                     completion(.appDeleted)
                 } else {
-                    PSLog.warning("Prompt endpoint returned 404 for \(url.absoluteString) — check apiBaseUrl.")
+                    PSLog.warning("Prompt endpoint returned 404 for \(url.absoluteString) - check apiBaseUrl.")
                     completion(.unavailable)
                 }
                 return
@@ -165,13 +171,13 @@ final class PromptTextRepository {
                 return
             }
 
-            // A 200 supersedes both suppression flags — this is how an app recovers from a
+            // A 200 supersedes both suppression flags - this is how an app recovers from a
             // transient 404 during a deploy, and from a limit that reset with the billing period.
             self.setFlag(Self.limitKey, false)
             self.setFlag(Self.deletedKey, false)
 
             let mapped = mapAPIResponse(apiResp)
-            // Do not cache warm-up responses — they must stay live so the threshold
+            // Do not cache warm-up responses - they must stay live so the threshold
             // counter can advance and warm-up completion is detected on the next fetch.
             if !mapped.warmup { self.saveCache(mapped) }
             PSLog.info("Prompt fetched (locale=\(mapped.text.locale), warmup=\(mapped.warmup)).")

@@ -50,8 +50,8 @@ final class PrePromptViewController: UIViewController, UIGestureRecognizerDelega
         view.addGestureRecognizer(tap)
     }
 
-    /// Only taps on the scrim dismiss. Without this, a tap anywhere on the card itself — the
-    /// title, the body, the header image — counted as a dismissal.
+    /// Only taps on the scrim dismiss. Without this, a tap anywhere on the card itself - the
+    /// title, the body, the header image - counted as a dismissal.
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
         return !cardView.bounds.contains(touch.location(in: cardView))
     }
@@ -75,7 +75,7 @@ final class PrePromptViewController: UIViewController, UIGestureRecognizerDelega
         cardView.isUserInteractionEnabled = true
         view.addSubview(cardView)
 
-        // Header image — initially zero height, expands after the image loads.
+        // Header image - initially zero height, expands after the image loads.
         headerImageView.contentMode = .scaleAspectFill
         headerImageView.clipsToBounds = true
         let imageHeight = headerImageView.heightAnchor.constraint(equalToConstant: 0)
@@ -129,7 +129,7 @@ final class PrePromptViewController: UIViewController, UIGestureRecognizerDelega
         buttonStack.translatesAutoresizingMaskIntoConstraints = false
         cardView.addSubview(buttonStack)
 
-        // The card hugs its content, but never grows past 90% of the safe area — past that the
+        // The card hugs its content, but never grows past 90% of the safe area - past that the
         // scroll view takes over.
         let hugContent = scrollView.heightAnchor.constraint(equalTo: contentStack.heightAnchor)
         hugContent.priority = .defaultHigh
@@ -192,9 +192,10 @@ final class PrePromptViewController: UIViewController, UIGestureRecognizerDelega
     // MARK: - Actions
 
     @objc private func didTapAccept() {
-        // `SKStoreReviewController` is fired by PromptSurge in the `onAccept` handler, once, and
+        // The rating sheet is requested by PromptSurge in the `onAccept` handler (StoreKit's
+        // `AppStore.requestReview(in:)` on iOS 16+, `SKStoreReviewController` below), once, and
         // after this controller is off screen. It used to be requested here as well, which meant
-        // two requests per confirmation.
+        // two requests per confirmation - and now each one also counts against the review quota.
         dismiss(animated: true, completion: onAccept)
     }
 

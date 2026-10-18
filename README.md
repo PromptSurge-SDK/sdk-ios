@@ -8,7 +8,7 @@ In Xcode: **File → Add Package Dependencies**, paste `https://github.com/Promp
 
 Or in `Package.swift`:
 ```swift
-.package(url: "https://github.com/PromptSurge-SDK/sdk-ios.git", from: "1.1.0")
+.package(url: "https://github.com/PromptSurge-SDK/sdk-ios.git", from: "1.3.0")
 ```
 
 The published repository is `PromptSurge-SDK/sdk-ios`. The old `promptsurge/sdk-ios` URL still resolves through a GitHub redirect, but use the canonical one.

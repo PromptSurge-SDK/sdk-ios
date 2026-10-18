@@ -65,7 +65,7 @@ struct EventBatchResponse: Decodable {
 // MARK: - Telemetry
 
 final class Telemetry {
-    static let sdkVersion = "1.2.0"
+    static let sdkVersion = "1.3.0"
     private static let platform = "ios"
     private static let firstOpenKey = "ps_first_open_fired"
 

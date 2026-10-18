@@ -3,9 +3,8 @@
 The version is `Telemetry.sdkVersion`. CI tags the public mirror (`PromptSurge-SDK/sdk-ios`) with
 that string when it changes; tags are never moved.
 
-## Unreleased (proposed 1.3.0)
+## 1.3.0 - 2026-10-19
 
-Not released. `Telemetry.sdkVersion` is still `1.2.0` and no tag has moved.
 
 ### Changed
 

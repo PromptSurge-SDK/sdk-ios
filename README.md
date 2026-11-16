@@ -1,6 +1,12 @@
 # PromptSurge iOS SDK
 
-Swift Package Manager SDK for iOS 14+. Shows a pre-prompt dialog before asking StoreKit for the rating sheet (`AppStore.requestReview(in:)` on iOS 16 and later, `SKStoreReviewController.requestReview(in:)` on iOS 14 and 15), increasing review tap-through rates.
+Swift Package Manager SDK for iOS 14+. Shows a pre-prompt dialog before asking StoreKit for the rating sheet (`AppStore.requestReview(in:)` on iOS 16 and later, `SKStoreReviewController.requestReview(in:)` on iOS 14 and 15).
+
+## Using an AI coding assistant
+
+Claude, ChatGPT, Gemini or Grok can do this integration for you. The prompt to paste is at
+<https://promptsurge.me/en/ai-assistants>, and the guide the assistant should read is one plain text
+file: <https://promptsurge.me/llms-full.txt>. Creating the account and copying the API key stay with you.
 
 ## Installation
 
@@ -120,7 +126,7 @@ with `[action]` replaced by the moment you call `requestReview(in:)` (and your o
 if you changed them):
 
 ```
-After a user completes [action], the app shows a short request to leave a review. Tapping Sure opens the system rating sheet; tapping Not now closes it. The app never asks how the user feels and never collects a rating itself.
+After a user completes [action], the app shows a short request to leave a review. Tapping Sure requests the system rating sheet (SKStoreReviewController / AppStore.requestReview); tapping Not now closes it. The app never asks how the user feels and never collects a rating itself.
 ```
 
 ## Requirements

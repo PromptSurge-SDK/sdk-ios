@@ -7,4 +7,6 @@ enum EventTypes {
     static let prePromptConfirmed    = "pre_prompt_confirmed"
     static let prePromptDismissed    = "pre_prompt_dismissed"
     static let nativePromptRequested = "native_prompt_requested"
+    /// Card 833: how long the app was away after asking for the rating sheet (`awayMs`).
+    static let nativeSheetClosed     = "native_sheet_closed"
 }

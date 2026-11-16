@@ -27,6 +27,9 @@ public final class PromptSurge {
     /// from stacking two dialogs. Only ever touched on the main queue.
     private var isRequestInFlight = false
 
+    /// Times the app's absence after each rating-sheet request (card 833).
+    var sheetAwayWatcher = SheetAwayWatcher()
+
     private convenience init(apiKey: String, apiBaseUrl: String, verifyToken: String?) {
         let holdout = HoldoutManager()
         // One session id shared by the prompt fetch and every event, so the server can select
@@ -166,7 +169,7 @@ public final class PromptSurge {
 
         // Holdout group - skip pre-prompt but still fire native review as a baseline.
         if holdoutManager.isHoldout {
-            fireNativeReview(from: presenter, reason: "this device is in the holdout group")
+            fireNativeReview(from: presenter, reason: "this device is in the holdout group", source: "holdout")
             return
         }
 
@@ -180,19 +183,19 @@ public final class PromptSurge {
                 case .prompt(let response):
                     if response.warmup {
                         // Warm-up phase: fire native review to build baseline, never show dialog.
-                        self.fireNativeReview(from: presenter, reason: "the app is still in its warm-up phase")
+                        self.fireNativeReview(from: presenter, reason: "the app is still in its warm-up phase", source: "warmup")
                     } else {
                         self.present(response, from: presenter)
                     }
                 case .limitExceeded:
-                    self.fireNativeReview(from: presenter, reason: "the monthly impression limit is spent")
+                    self.fireNativeReview(from: presenter, reason: "the monthly impression limit is spent", source: "impression_limit")
                 case .appDeleted:
-                    self.fireNativeReview(from: presenter, reason: "this app was deleted in the admin panel")
+                    self.fireNativeReview(from: presenter, reason: "this app was deleted in the admin panel", source: "app_deleted")
                 case .unauthorized:
                     // A rejected key is a configuration bug, not a network blip. Showing bundled
                     // English copy here is what made a broken key look like a working install.
                     PSLog.warning("No pre-prompt shown: the API key was rejected. The native review prompt fires instead.")
-                    self.fireNativeReview(from: presenter, reason: "the API key was rejected")
+                    self.fireNativeReview(from: presenter, reason: "the API key was rejected", source: "unauthorized")
                 case .unavailable:
                     PSLog.info("Server unreachable; showing the bundled English copy.")
                     self.present(PromptResponse.bundledDefault, from: presenter)
@@ -206,7 +209,13 @@ public final class PromptSurge {
     /// warm-up, the impression limit, a deleted app and a rejected key.
     /// - Parameter recordCooldown: pass `false` when the 90-day cooldown was already recorded
     ///   for this interaction, i.e. the pre-prompt was shown first and the user confirmed.
-    private func fireNativeReview(from presenter: UIViewController, reason: String, recordCooldown: Bool = true) {
+    private func fireNativeReview(
+        from presenter: UIViewController,
+        reason: String,
+        source: String,
+        payload: EventPayload = EventPayload(),
+        recordCooldown: Bool = true
+    ) {
         PSLog.info("Requesting the native review prompt: \(reason).")
         guard nativeReviewRequest(presenter) else {
             PSLog.warning("Cannot request the native review prompt (\(reason)): the view controller passed to requestReview(in:) is not in a window.")
@@ -217,6 +226,13 @@ public final class PromptSurge {
         rateLimiter.recordNativeRequest()
         telemetry.send(eventType: EventTypes.nativePromptRequested)
         if recordCooldown { rateLimiter.recordShown() }
+        // iOS never says whether the sheet appeared; how long the app was away is all it shows.
+        sheetAwayWatcher.watch { [weak self] awayMs in
+            var closed = payload
+            closed.awayMs = awayMs
+            closed.source = source
+            self?.telemetry.send(eventType: EventTypes.nativeSheetClosed, payload: closed)
+        }
     }
 
     /// The default `nativeReviewRequest`: StoreKit's review API, in the presenter's window scene.
@@ -254,8 +270,15 @@ public final class PromptSurge {
                     eventType: EventTypes.prePromptConfirmed,
                     payload: self.promptPayload(response)
                 )
-                // The cooldown was already recorded when the dialog appeared.
-                self.fireNativeReview(from: presenter, reason: "the user accepted the pre-prompt", recordCooldown: false)
+                // The cooldown was already recorded when the dialog appeared. In notice mode this
+                // also runs when the dialog was closed with a tap on the scrim (card 833).
+                self.fireNativeReview(
+                    from: presenter,
+                    reason: response.isNotice ? "the notice was closed" : "the user accepted the pre-prompt",
+                    source: response.isNotice ? "notice" : "confirm",
+                    payload: self.promptPayload(response),
+                    recordCooldown: false
+                )
             },
             onDismiss: { [weak self] in
                 guard let self else { return }

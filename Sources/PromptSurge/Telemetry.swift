@@ -13,6 +13,10 @@ struct EventPayload: Encodable {
     var resolvedLocale: String?
     /// Must be an integer in JSON - schema rejects string values.
     var servedPromptNumber: Int?
+    /// `native_sheet_closed` only (card 833): milliseconds the app was away after the request.
+    var awayMs: Int?
+    /// `native_sheet_closed` only: which path asked - confirm, notice, warmup, holdout, ...
+    var source: String?
 }
 
 struct EventDto: Encodable {
@@ -65,7 +69,7 @@ struct EventBatchResponse: Decodable {
 // MARK: - Telemetry
 
 final class Telemetry {
-    static let sdkVersion = "1.3.0"
+    static let sdkVersion = "1.4.0"
     private static let platform = "ios"
     private static let firstOpenKey = "ps_first_open_fired"
 

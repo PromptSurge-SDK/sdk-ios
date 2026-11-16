@@ -3,6 +3,21 @@
 The version is `Telemetry.sdkVersion`. CI tags the public mirror (`PromptSurge-SDK/sdk-ios`) with
 that string when it changes; tags are never moved.
 
+## 1.4.0 - 2026-11-16
+
+### Added
+
+- **"Announce only" pre-prompt (card 833).** The SDK now tells the server it can draw a one-button
+  notice (`notice=1` on `/v1/prompts`). When the app is set to "Announce only" in the PromptSurge
+  console, the server answers `mode: "notice"` and the dialog shows ONE button (`ctaConfirm`); the
+  button and a tap outside the card both lead to StoreKit's rating sheet, and no
+  `pre_prompt_dismissed` is sent. Apps left on the default "Ask first" see no change. The
+  store-limit guard still decides first: when iOS would likely show nothing, there is no notice.
+- **`native_sheet_closed { awayMs, source }`.** StoreKit never says whether its sheet appeared,
+  so after each request the SDK times the app's absence: resign active to become active again.
+  No resign within 3 seconds reports 0 (iOS showed nothing). Sent on every path that asks
+  StoreKit (confirm, notice, warm-up, holdout, impression limit, deleted app, rejected key).
+
 ## 1.3.0 - 2026-10-19
 
 

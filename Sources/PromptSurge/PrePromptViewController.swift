@@ -4,6 +4,8 @@ final class PrePromptViewController: UIViewController, UIGestureRecognizerDelega
     private let promptResponse: PromptResponse
     private let onAccept: () -> Void
     private let onDismiss: () -> Void
+    /// "Announce only" (card 833): one button, and a tap on the scrim leads to the sheet too.
+    private var isNotice: Bool { promptResponse.isNotice }
 
     private let cardView = UIView()
     private let scrollView = UIScrollView()
@@ -121,8 +123,9 @@ final class PrePromptViewController: UIViewController, UIGestureRecognizerDelega
         styleSecondaryButton(negativeButton, title: text.negativeButton, label: accentColor)
         negativeButton.addTarget(self, action: #selector(didTapDismiss), for: .touchUpInside)
 
-        // Negative (dismiss) on the left, positive (accept) on the right.
-        let buttonStack = UIStackView(arrangedSubviews: [negativeButton, positiveButton])
+        // Negative (dismiss) on the left, positive (accept) on the right. In notice mode there
+        // is no dismiss button at all: the dialog announces the sheet, it does not ask.
+        let buttonStack = UIStackView(arrangedSubviews: isNotice ? [positiveButton] : [negativeButton, positiveButton])
         buttonStack.axis = .horizontal
         buttonStack.distribution = .fillEqually
         buttonStack.spacing = 12
@@ -200,7 +203,8 @@ final class PrePromptViewController: UIViewController, UIGestureRecognizerDelega
     }
 
     @objc private func didTapDismiss() {
-        dismiss(animated: true, completion: onDismiss)
+        // In notice mode the only other way out (a tap on the scrim) leads to the sheet.
+        dismiss(animated: true, completion: isNotice ? onAccept : onDismiss)
     }
 
     // MARK: - Styling

@@ -23,6 +23,8 @@ struct APIPromptResponse: Codable {
     let promptId: String?
     /// True during the mandatory warm-up phase. SDK fires native review without dialog.
     let warmup: Bool?
+    /// "ask" (two buttons) or "notice" (one button, card 833). Older servers omit it: ask.
+    let mode: String?
 }
 
 // ─── Internal SDK model ───────────────────────────────────────────────────────
@@ -61,6 +63,12 @@ struct PromptResponse: Codable {
     let imageUrl: String?
     /// True during the mandatory warm-up phase. SDK fires native review without dialog.
     let warmup: Bool
+    /// True when the server answered `mode: "notice"` (card 833): one button, and the rating
+    /// sheet is requested however the dialog closes. Optional so a cache written by 1.3.0
+    /// still decodes.
+    var notice: Bool? = nil
+
+    var isNotice: Bool { notice == true }
 
     /// Last-resort copy, used only when the server cannot be reached at all.
     static let bundledDefault = PromptResponse(
@@ -109,7 +117,8 @@ func mapAPIResponse(_ api: APIPromptResponse) -> PromptResponse {
         text: text,
         theme: api.theme,
         imageUrl: api.imageUrl,
-        warmup: api.warmup ?? false
+        warmup: api.warmup ?? false,
+        notice: api.mode == "notice"
     )
 }
 

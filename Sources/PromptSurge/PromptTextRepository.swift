@@ -99,6 +99,9 @@ final class PromptTextRepository {
             // Makes A/B copy selection stable for the lifetime of a session.
             URLQueryItem(name: "sessionId", value: sessionId),
             URLQueryItem(name: "appVersion", value: version),
+            // This SDK can draw the one-button notice (card 833). Without it, an app in notice
+            // mode is answered with the warm-up shape: no dialog, straight to the rating sheet.
+            URLQueryItem(name: "notice", value: "1"),
         ]
         guard let url = comps?.url else {
             PSLog.error("apiBaseUrl '\(apiBaseUrl)' is not a valid URL - no prompt can be fetched.")
